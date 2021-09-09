@@ -12,6 +12,7 @@ library(org.Mm.eg.db)
 library(scMerge)
 library(scran)
 library(patchwork)
+library(cowplot)
 
 #Load data
 thymus_mouse_datasets_seurat <- 
@@ -49,56 +50,70 @@ mouse.thymus.combined.sce <- as.SingleCellExperiment(mouse.thymus.combined)
 # Function that returns the proportion of each cell cluster per batch
 getCellProportions <- function(sce, celltype=FALSE){
   
-  # Get the nb of control, AA, and PGE cells
+  # Get the nb of cells
   total.cells <- table(colData(sce)$batch)
   
-  # Gives number of control, AA, and PGE cells per cluster
+  # Gives number of cells in each batch per cluster
   cell_per_cluster <- lapply(levels(colData(sce)$seurat_clusters), function(l) {
     tmp <- sce[,colData(sce)$seurat_clusters == l]
-    control <- tmp[,colData(tmp)$Condition == "control"]
-    AA <- tmp[,colData(tmp)$Condition == "AA"]
-    PGE <- tmp[,colData(tmp)$Condition == "PGE"]
-    data.frame(control=ncol(control),
-               AA=ncol(AA),
-               PGE=ncol(PGE),
-               label=l)
+    Dhalla_2020 <- tmp[,colData(tmp)$batch == "Dhalla_2020"]
+    Bornstein_2018 <- tmp[,colData(tmp)$batch == "Bornstein_2018"]
+    Meredith_2015 <- tmp[,colData(tmp)$batch == "Meredith_2015"]
+    Park_2020 <- tmp[,colData(tmp)$batch == "Park_2020"]
+    Tabula_Muris_2020 <- tmp[,colData(tmp)$batch == "Tabula_Muris_2020"]
+    Wells_2020 <- tmp[,colData(tmp)$batch == "Wells_2020"]
+    data.frame(Dhalla_2020=ncol(Dhalla_2020),
+               Bornstein_2018=ncol(Bornstein_2018),
+               Meredith_2015=ncol(Meredith_2015),
+               Park_2020=ncol(Park_2020),
+               Tabula_Muris_2020=ncol(Tabula_Muris_2020),
+               Wells_2020=ncol(Wells_2020),
+               seurat_clusters=l)
   }) %>%
     bind_rows
   
   # Get proportion of each cell cluster, out of the total number of WT or KO cells
   cell_per_cluster <- cell_per_cluster %>%
-    mutate(control_proportion = control/total.cells['control'],
-           AA_proportion = AA/total.cells['AA'],
-           PGE_proportion = PGE/total.cells['PGE'])
+    mutate(Dhalla_2020_proportion = Dhalla_2020/total.cells['Dhalla_2020'],
+           Bornstein_2018_proportion = Bornstein_2018/total.cells['Bornstein_2018'],
+           Meredith_2015_proportion = Meredith_2015/total.cells['Meredith_2015'],
+           Park_2020_proportion = Park_2020/total.cells['Park_2020'],
+           Tabula_Muris_2020_proportion = Tabula_Muris_2020/total.cells['Tabula_Muris_2020'],
+           Wells_2020_proportion = Wells_2020/total.cells['Wells_2020'])
   
   # Get long tibble
   cell_per_cluster <- cell_per_cluster %>%
-    dplyr::select(-c(control, AA, PGE)) %>%
-    pivot_longer(ends_with('proportion'), names_to ="condition", values_to="proportion") %>%
-    mutate(label=fct_inorder(label)) # keep same order for plotting
+    dplyr::select(-c(Bornstein_2018,
+                     Dhalla_2020,
+                     Meredith_2015,
+                     Park_2020,
+                     Tabula_Muris_2020,
+                     Wells_2020)) %>%
+    pivot_longer(ends_with('proportion'), names_to ="batch", values_to="proportion") %>%
+    mutate(seurat_clusters=fct_inorder(seurat_clusters)) # keep same order for plotting
   
   
   # If we have cell annotation, we can add the cell type annotation
   if(celltype==TRUE){
     cell_per_cluster <- colData(sce) %>%
       as.data.frame %>%
-      dplyr::select(label, cell_type) %>% 
+      dplyr::select(seurat_clusters, type) %>% 
       distinct %>%
-      right_join(cell_per_cluster, by="label") %>%
-      arrange(as.numeric(label)) %>%
-      mutate(label_cell=paste(label, cell_type, sep="_"),
-             label_cell=fct_inorder(label_cell)) # have a column with cluster number + cell type
+      right_join(cell_per_cluster, by="seurat_clusters") %>%
+      arrange(as.numeric(seurat_clusters)) %>%
+      mutate(seurat_clusters_cell=paste(seurat_clusters, type, sep="_"),
+             seurat_clusters_cell=fct_inorder(seurat_clusters_cell)) # have a column with cluster number + cell type
   }
   
   return(cell_per_cluster)
 }
 
-cellPerClust<- getCellProportions(cluster.walktrap.full.40$sce) %>%
+cellPerClust<- getCellProportions(mouse.thymus.combined.sce) %>%
   as.data.frame()
 
 p <- ggplot(cellPerClust) + 
-  geom_bar(aes(x=label, y=proportion, fill=condition), stat="identity", position="dodge") +
-  scale_fill_manual(values=c("#abd9e9", "#fdae61", "#91cf60")) +
+  geom_bar(aes(x=seurat_clusters, y=proportion, fill=batch), stat="identity", position="dodge") +
+  scale_fill_manual(values=c('#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33')) +
   theme_cowplot() +
   theme(legend.position = "right",
         legend.title=element_blank(),
@@ -108,5 +123,10 @@ p <- ggplot(cellPerClust) +
         axis.text.y=element_text(size=15),
         plot.title = element_text(hjust = 0.5, size=20)) +
   ggtitle("Cell Proportions")
+
+
+pdf("seurat_integration_cell_proportions.pdf",
+    width=20, height=10)
 p
+dev.off()
 

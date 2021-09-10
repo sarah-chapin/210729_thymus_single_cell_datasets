@@ -40,7 +40,12 @@ mouse.thymus.combined <- FindClusters(mouse.thymus.combined, resolution = 0.5)
 # Visualization
 p1 <- DimPlot(mouse.thymus.combined, reduction = "umap", group.by = "batch")
 p2 <- DimPlot(mouse.thymus.combined, reduction = "umap", label = TRUE, repel = TRUE)
+
+pdf("seurat_integration_umap.pdf",
+    width=20, height=10)
 p1 + p2
+dev.off()
+
 
 #Convert to Single Cell Experiment Object
 mouse.thymus.combined.sce <- as.SingleCellExperiment(mouse.thymus.combined)

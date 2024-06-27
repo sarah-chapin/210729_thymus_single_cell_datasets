@@ -1,0 +1,11 @@
+*.rds
+*.Rds
+*.h5ad
+*.csv
+.DS_Store
+.RData
+.Rhistory
+.Rproj.user/
+.ipynb_checkpoints/
+!human_protein_coding_genes.csv
+!mouse_protein_coding_genes.csv
